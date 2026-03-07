@@ -3,6 +3,7 @@
 export interface User {
   _openid: string;
   dailyUsage: number;
+  dailyBonus: number;
   lastUsageDate: string;
   createdAt: Date;
 }

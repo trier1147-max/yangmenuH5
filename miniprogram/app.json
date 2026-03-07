@@ -10,7 +10,9 @@
     "navigationBarTitleText": "洋菜单",
     "navigationBarBackgroundColor": "#FAFAFA",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#F5F6FA"
+    "backgroundColor": "#F5F6FA",
+    "enableShareAppMessage": true,
+    "enableShareTimeline": true
   },
   "usingComponents": {
     "van-toast": "@vant/weapp/toast/index",

@@ -7,8 +7,8 @@ import {
   saveRecord,
   uploadImage,
 } from "../../services/ai";
-import { consumeDailyUsage } from "../../services/cloud";
 import { deleteRecordById, getRecentRecords, getRecordById } from "../../services/history";
+import { checkUsage, consumeUsage, addShareBonus } from "../../services/user";
 import type { Dish, ScanRecord } from "../../utils/types";
 import type { RecentRecordItem } from "../../services/history";
 
@@ -24,6 +24,10 @@ interface IndexData {
   showManualInput: boolean;
   manualInputText: string;
   isProcessing: boolean;
+  remaining: number;
+  total: number;
+  canShare: boolean;
+  showLimitDialog: boolean;
 }
 
 /** Validate image files: size <= 4MB, format jpg/jpeg/png. Returns error message or null if valid. */
@@ -58,6 +62,10 @@ Page({
     showManualInput: false,
     manualInputText: "",
     isProcessing: false,
+    remaining: 6,
+    total: 6,
+    canShare: true,
+    showLimitDialog: false,
   } as IndexData,
 
   loadingTimer: 0 as number,
@@ -67,8 +75,16 @@ Page({
   },
 
   async refreshData() {
-    const recentRecords = await getRecentRecords(3);
-    this.setData({ recentRecords });
+    const [recentRecords, usage] = await Promise.all([
+      getRecentRecords(3),
+      checkUsage(),
+    ]);
+    this.setData({
+      recentRecords,
+      remaining: usage.remaining,
+      total: usage.total,
+      canShare: usage.canShare,
+    });
   },
 
   /** 轮询直到解析出至少一道菜，或识别完成/报错/超时。成功时返回 record 供跳转页直接使用，避免二次请求。 */
@@ -97,6 +113,11 @@ Page({
 
   async onTakePhoto() {
     if (this.data.isProcessing) return;
+    const usage = await checkUsage();
+    if (usage.remaining <= 0) {
+      this.setData({ showLimitDialog: true });
+      return;
+    }
     this.setData({ isProcessing: true });
     try {
       const res = await wx.chooseMedia({
@@ -112,22 +133,7 @@ Page({
         });
         return;
       }
-      const usageResult = await consumeDailyUsage();
-      if (usageResult.success && usageResult.canProceed) {
-        await this.handleMediaResult(res);
-      } else if (usageResult.success && !usageResult.canProceed) {
-        wx.showModal({
-          title: "今日次数已用完",
-          content: "每日可免费识别 6 次，明天再来吧！",
-          showCancel: false,
-        });
-      } else {
-        wx.showToast({
-          title: "网络异常，请检查网络后重试",
-          icon: "none",
-          duration: 2000,
-        });
-      }
+      await this.handleMediaResult(res);
     } catch (e: any) {
       const errMsg = e?.errMsg || e?.message || (typeof e === "string" ? e : "");
       if (errMsg.includes("cancel")) return; // 用户主动取消，静默返回
@@ -141,6 +147,11 @@ Page({
 
   async onChooseAlbum() {
     if (this.data.isProcessing) return;
+    const usage = await checkUsage();
+    if (usage.remaining <= 0) {
+      this.setData({ showLimitDialog: true });
+      return;
+    }
     this.setData({ isProcessing: true });
     try {
       const res = await wx.chooseMedia({
@@ -156,22 +167,7 @@ Page({
         });
         return;
       }
-      const usageResult = await consumeDailyUsage();
-      if (usageResult.success && usageResult.canProceed) {
-        await this.handleMediaResult(res);
-      } else if (usageResult.success && !usageResult.canProceed) {
-        wx.showModal({
-          title: "今日次数已用完",
-          content: "每日可免费识别 6 次，明天再来吧！",
-          showCancel: false,
-        });
-      } else {
-        wx.showToast({
-          title: "网络异常，请检查网络后重试",
-          icon: "none",
-          duration: 2000,
-        });
-      }
+      await this.handleMediaResult(res);
     } catch (e: any) {
       const errMsg = e?.errMsg || e?.message || (typeof e === "string" ? e : "");
       if (errMsg.includes("cancel")) return; // 用户主动取消，静默返回
@@ -215,27 +211,14 @@ Page({
       return;
     }
 
+    const usage = await checkUsage();
+    if (usage.remaining <= 0) {
+      this.setData({ showLimitDialog: true });
+      return;
+    }
+
     this.setData({ isProcessing: true });
     try {
-      const usageResult = await consumeDailyUsage();
-      if (usageResult.success && usageResult.canProceed) {
-        // proceed
-      } else if (usageResult.success && !usageResult.canProceed) {
-        wx.showModal({
-          title: "今日次数已用完",
-          content: "每日可免费识别 6 次，明天再来吧！",
-          showCancel: false,
-        });
-        return;
-      } else {
-        wx.showToast({
-          title: "网络异常，请检查网络后重试",
-          icon: "none",
-          duration: 2000,
-        });
-        return;
-      }
-
       this.setData({
         loading: true,
         loadingEmoji: "📝",
@@ -250,6 +233,8 @@ Page({
         Toast.fail(result.error || "未识别到有效菜品");
         return;
       }
+
+      await consumeUsage();
 
       const app = getApp() as AppOption;
       app.globalData.pendingRecord = {
@@ -388,6 +373,7 @@ Page({
       this.setData({ loading: false });
 
       if (recordId) {
+        await consumeUsage();
         wx.navigateTo({
           url: `/pages/menu-list/menu-list?recordId=${recordId}`,
         });
@@ -441,5 +427,59 @@ Page({
 
   onViewAllHistory() {
     wx.navigateTo({ url: "/pages/history/history" });
+  },
+
+  onLimitDialogConfirm() {
+    this.setData({ showLimitDialog: false });
+  },
+
+  onLimitDialogCancel() {
+    this.setData({ showLimitDialog: false });
+  },
+
+  /** 分享给朋友：+2 次 */
+  onShareAppMessage() {
+    addShareBonus(2).then((res) => {
+      if (res.success) {
+        checkUsage().then((usage) => {
+          this.setData({
+            remaining: usage.remaining,
+            total: usage.total,
+            canShare: usage.canShare,
+          });
+          Toast.success("已获得 2 次额外机会");
+        });
+      } else {
+        Toast.fail("今日次数已达上限");
+      }
+    });
+    return {
+      title: "在国外不知道吃啥？拍一下菜单AI帮你搞懂每道菜",
+      path: "/pages/index/index",
+      imageUrl: "",
+    };
+  },
+
+  /** 分享到朋友圈：+4 次 */
+  onShareTimeline() {
+    addShareBonus(4).then((res) => {
+      if (res.success) {
+        checkUsage().then((usage) => {
+          this.setData({
+            remaining: usage.remaining,
+            total: usage.total,
+            canShare: usage.canShare,
+          });
+          Toast.success("已获得 4 次额外机会");
+        });
+      } else {
+        Toast.fail("今日次数已达上限");
+      }
+    });
+    return {
+      title: "在国外不知道吃啥？拍一下菜单AI帮你搞懂每道菜",
+      query: "",
+      imageUrl: "",
+    };
   },
 });

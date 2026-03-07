@@ -36,58 +36,64 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.callFunction = callFunction;
-exports.uploadImage = uploadImage;
-/** 调用云函数，统一错误处理 */
-function callFunction(name, data) {
+exports.checkUsage = checkUsage;
+exports.consumeUsage = consumeUsage;
+exports.addShareBonus = addShareBonus;
+// 洋菜单 - 用户次数管理：检查、消耗、分享奖励
+var cloud_1 = require("./cloud");
+var BASE_LIMIT = 6;
+var MAX_LIMIT = 12;
+/** 检查今日使用次数，返回剩余、总额、是否还能通过分享获取 */
+function checkUsage() {
     return __awaiter(this, void 0, void 0, function () {
-        var res, result, e_1, message;
-        var _a;
-        return __generator(this, function (_b) {
-            switch (_b.label) {
-                case 0:
-                    _b.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, wx.cloud.callFunction({ name: name, data: data })];
+        var res, dailyUsage, dailyBonus, total, remaining, canShare;
+        var _a, _b;
+        return __generator(this, function (_c) {
+            switch (_c.label) {
+                case 0: return [4 /*yield*/, (0, cloud_1.callFunction)("getUserInfo", {})];
                 case 1:
-                    res = _b.sent();
-                    result = res.result;
-                    if (result === null || result === void 0 ? void 0 : result.success) {
-                        return [2 /*return*/, result];
+                    res = _c.sent();
+                    if (!res.success || !res.user) {
+                        return [2 /*return*/, { remaining: BASE_LIMIT, total: BASE_LIMIT, canShare: true }];
                     }
-                    return [2 /*return*/, Object.assign({}, result, {
-                            success: false,
-                            error: (_a = result === null || result === void 0 ? void 0 : result.error) !== null && _a !== void 0 ? _a : "未知错误",
-                        })];
-                case 2:
-                    e_1 = _b.sent();
-                    message = e_1 instanceof Error ? e_1.message : String(e_1);
-                    return [2 /*return*/, { success: false, error: message }];
-                case 3: return [2 /*return*/];
+                    dailyUsage = (_a = res.user.dailyUsage) !== null && _a !== void 0 ? _a : 0;
+                    dailyBonus = (_b = res.user.dailyBonus) !== null && _b !== void 0 ? _b : 0;
+                    total = BASE_LIMIT + dailyBonus;
+                    remaining = Math.max(0, total - dailyUsage);
+                    canShare = total < MAX_LIMIT;
+                    return [2 /*return*/, { remaining: remaining, total: total, canShare: canShare }];
             }
         });
     });
 }
-/** 上传图片到云存储，返回 fileID */
-function uploadImage(filePath) {
+/** 消耗一次使用次数，拍照/识别成功后调用。成功返回 true，超限返回 false */
+function consumeUsage() {
     return __awaiter(this, void 0, void 0, function () {
-        var cloudPath, res, e_2, message;
+        var res;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    cloudPath = "menu-images/".concat(Date.now(), "-").concat(Math.random().toString(36).slice(2), ".jpg");
-                    return [4 /*yield*/, wx.cloud.uploadFile({
-                            cloudPath: cloudPath,
-                            filePath: filePath,
-                        })];
+                case 0: return [4 /*yield*/, (0, cloud_1.callFunction)("getUserInfo", { action: "consume" })];
                 case 1:
                     res = _a.sent();
-                    return [2 /*return*/, res.fileID];
-                case 2:
-                    e_2 = _a.sent();
-                    message = e_2 instanceof Error ? e_2.message : String(e_2);
-                    throw new Error(message);
-                case 3: return [2 /*return*/];
+                    return [2 /*return*/, res.success === true];
+            }
+        });
+    });
+}
+/** 分享奖励。amount: 2=朋友 4=朋友圈。返回是否成功和新的剩余次数 */
+function addShareBonus() {
+    return __awaiter(this, arguments, void 0, function (amount) {
+        var res;
+        if (amount === void 0) { amount = 2; }
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, (0, cloud_1.callFunction)("getUserInfo", { action: "addBonus", amount: amount })];
+                case 1:
+                    res = _a.sent();
+                    if (res.success && typeof res.remaining === "number") {
+                        return [2 /*return*/, { success: true, newRemaining: res.remaining }];
+                    }
+                    return [2 /*return*/, { success: false, newRemaining: 0 }];
             }
         });
     });

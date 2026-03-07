@@ -1,5 +1,21 @@
 <van-toast id="van-toast" />
 
+<van-dialog
+  use-slot
+  show="{{showLimitDialog}}"
+  title="今日次数已用完"
+  show-cancel-button="{{canShare}}"
+  confirm-button-text="{{canShare ? '去分享' : '知道了'}}"
+  cancel-button-text="取消"
+  bind:confirm="onLimitDialogConfirm"
+  bind:cancel="onLimitDialogCancel"
+>
+  <view class="limit-dialog__content">
+    <text wx:if="{{canShare}}">分享给朋友+2次，分享到朋友圈+4次</text>
+    <text wx:else>今日已达上限12次，明天再来吧！</text>
+  </view>
+</van-dialog>
+
 <!-- 手动输入弹窗：更宽的输入框 -->
 <van-popup
   show="{{ showManualInput }}"
@@ -74,6 +90,16 @@
   </view>
 
   <view class="ai-scanner-wrap">
+    <view class="usage-badges">
+      <view class="usage-badge usage-badge--count">
+        <text class="usage-badge__text">今日剩余 {{remaining}}/{{total}} 次</text>
+      </view>
+      <button
+        wx:if="{{canShare}}"
+        class="usage-badge usage-badge--share"
+        open-type="share"
+      >分享获取次数</button>
+    </view>
     <view class="ai-orb-ring">
       <view class="ai-orb {{isProcessing ? 'ai-orb--disabled' : ''}}" bindtap="onTakePhoto" hover-class="hover-scale">
         <view class="ai-orb-inner">
