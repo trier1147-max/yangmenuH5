@@ -71,6 +71,11 @@ Page({
   loadingTimer: 0 as number,
 
   onShow() {
+    // 用户从相机/相册返回但未选图时，wx.chooseMedia 可能不回调，导致 isProcessing 一直为 true。
+    // 此时 loading 为 false（尚未进入 handleMediaResult），可安全重置。
+    if (this.data.isProcessing && !this.data.loading) {
+      this.setData({ isProcessing: false });
+    }
     this.refreshData();
   },
 
@@ -118,13 +123,24 @@ Page({
       this.setData({ showLimitDialog: true });
       return;
     }
-    this.setData({ isProcessing: true });
     try {
-      const res = await wx.chooseMedia({
-        count: 6,
-        mediaType: ["image"],
-        sourceType: ["camera"],
-      });
+      const res = await new Promise<WechatMiniprogram.ChooseMediaSuccessCallbackResult>(
+        (resolve, reject) => {
+          wx.chooseMedia({
+            count: 6,
+            mediaType: ["image"],
+            sourceType: ["camera"],
+            success: resolve,
+            fail: reject,
+            complete: () => {
+              // 选图界面关闭时（含左滑返回）确保可再次点击
+              if (this.data.isProcessing && !this.data.loading) {
+                this.setData({ isProcessing: false });
+              }
+            },
+          });
+        }
+      );
       const valErr = validateImageFiles(res.tempFiles);
       if (valErr) {
         wx.showToast({
@@ -133,6 +149,7 @@ Page({
         });
         return;
       }
+      this.setData({ isProcessing: true });
       await this.handleMediaResult(res);
     } catch (e: any) {
       const errMsg = e?.errMsg || e?.message || (typeof e === "string" ? e : "");
@@ -152,13 +169,24 @@ Page({
       this.setData({ showLimitDialog: true });
       return;
     }
-    this.setData({ isProcessing: true });
     try {
-      const res = await wx.chooseMedia({
-        count: 6,
-        mediaType: ["image"],
-        sourceType: ["album"],
-      });
+      const res = await new Promise<WechatMiniprogram.ChooseMediaSuccessCallbackResult>(
+        (resolve, reject) => {
+          wx.chooseMedia({
+            count: 6,
+            mediaType: ["image"],
+            sourceType: ["album"],
+            success: resolve,
+            fail: reject,
+            complete: () => {
+              // 选图界面关闭时（含左滑返回）确保可再次点击
+              if (this.data.isProcessing && !this.data.loading) {
+                this.setData({ isProcessing: false });
+              }
+            },
+          });
+        }
+      );
       const valErr = validateImageFiles(res.tempFiles);
       if (valErr) {
         wx.showToast({
@@ -167,6 +195,7 @@ Page({
         });
         return;
       }
+      this.setData({ isProcessing: true });
       await this.handleMediaResult(res);
     } catch (e: any) {
       const errMsg = e?.errMsg || e?.message || (typeof e === "string" ? e : "");

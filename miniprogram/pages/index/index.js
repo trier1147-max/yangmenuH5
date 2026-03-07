@@ -148,6 +148,7 @@ Page({
         });
     },
     onTakePhoto: function () {
+        var _this = this;
         return __awaiter(this, void 0, void 0, function () {
             var usage, res, valErr, e_1, errMsg;
             return __generator(this, function (_a) {
@@ -162,14 +163,22 @@ Page({
                             this.setData({ showLimitDialog: true });
                             return [2 /*return*/];
                         }
-                        this.setData({ isProcessing: true });
                         _a.label = 2;
                     case 2:
                         _a.trys.push([2, 5, 6, 7]);
-                        return [4 /*yield*/, wx.chooseMedia({
-                                count: 6,
-                                mediaType: ["image"],
-                                sourceType: ["camera"],
+                        return [4 /*yield*/, new Promise(function (resolve, reject) {
+                                wx.chooseMedia({
+                                    count: 6,
+                                    mediaType: ["image"],
+                                    sourceType: ["camera"],
+                                    success: resolve,
+                                    fail: reject,
+                                    complete: function () {
+                                        if (_this.data.isProcessing && !_this.data.loading) {
+                                            _this.setData({ isProcessing: false });
+                                        }
+                                    },
+                                });
                             })];
                     case 3:
                         res = _a.sent();
@@ -181,6 +190,7 @@ Page({
                             });
                             return [2 /*return*/];
                         }
+                        this.setData({ isProcessing: true });
                         return [4 /*yield*/, this.handleMediaResult(res)];
                     case 4:
                         _a.sent();
@@ -203,6 +213,7 @@ Page({
         });
     },
     onChooseAlbum: function () {
+        var _this = this;
         return __awaiter(this, void 0, void 0, function () {
             var usage, res, valErr, e_2, errMsg;
             return __generator(this, function (_a) {
@@ -217,14 +228,22 @@ Page({
                             this.setData({ showLimitDialog: true });
                             return [2 /*return*/];
                         }
-                        this.setData({ isProcessing: true });
                         _a.label = 2;
                     case 2:
                         _a.trys.push([2, 5, 6, 7]);
-                        return [4 /*yield*/, wx.chooseMedia({
-                                count: 6,
-                                mediaType: ["image"],
-                                sourceType: ["album"],
+                        return [4 /*yield*/, new Promise(function (resolve, reject) {
+                                wx.chooseMedia({
+                                    count: 6,
+                                    mediaType: ["image"],
+                                    sourceType: ["album"],
+                                    success: resolve,
+                                    fail: reject,
+                                    complete: function () {
+                                        if (_this.data.isProcessing && !_this.data.loading) {
+                                            _this.setData({ isProcessing: false });
+                                        }
+                                    },
+                                });
                             })];
                     case 3:
                         res = _a.sent();
@@ -236,6 +255,7 @@ Page({
                             });
                             return [2 /*return*/];
                         }
+                        this.setData({ isProcessing: true });
                         return [4 /*yield*/, this.handleMediaResult(res)];
                     case 4:
                         _a.sent();

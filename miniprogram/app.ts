@@ -32,6 +32,18 @@ App({
     this.globalData.initPromise = this.initUser();
   },
 
+  /** 应用回到前台时，若首页在等待选图（左滑返回不会触发 Page.onShow），在此兜底重置 */
+  onShow() {
+    const pages = getCurrentPages();
+    const cur = pages[pages.length - 1] as WechatMiniprogram.Page.Instance<Record<string, unknown>, Record<string, unknown>> | undefined;
+    if (cur?.route === "pages/index/index") {
+      const d = cur.data as { isProcessing?: boolean; loading?: boolean };
+      if (d?.isProcessing && !d?.loading) {
+        cur.setData({ isProcessing: false });
+      }
+    }
+  },
+
   async initUser() {
     try {
       await wx.login();
