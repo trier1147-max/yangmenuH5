@@ -229,10 +229,9 @@ export default function HomePage() {
 
         {/* Logo + title */}
         <div className="flex items-center gap-3 mt-14 mb-1 animate-[fadeUp_0.5s_var(--spring-soft)_forwards]">
-          <div className="w-12 h-12 rounded-[16px] flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #FF8C2F, #FF6B00)', boxShadow: '0 4px 16px rgba(255,107,0,0.35)' }}>
-            菜
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.jpg" alt="洋菜单" className="w-12 h-12 rounded-[16px] object-cover flex-shrink-0"
+            style={{ boxShadow: '0 4px 16px rgba(255,107,0,0.25)' }} />
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-black tracking-wider" style={{ color: 'var(--orange)' }}>洋菜单</span>
