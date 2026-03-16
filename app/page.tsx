@@ -121,9 +121,13 @@ export default function HomePage() {
               } else if (eventType === 'partial') {
                 const dishes: Dish[] = data.dishes || []
                 setPartialCount(dishes.length)
-                if (dishes.length > 0) {
+                // 等到至少一道菜有完整 detail 才跳转
+                const hasComplete = dishes.some(
+                  (d) => d.detail?.description || d.detail?.flavor || d.detail?.recommendation
+                )
+                if (hasComplete) {
                   if (!navigated) {
-                    // 第一道菜出现 → 创建占位记录，启动流，立即跳转
+                    // 第一道完整菜品出现 → 创建占位记录，启动流，立即跳转
                     navigated = true
                     createStreamingRecord(recordId, thumbnail)
                     streamStart(recordId, dishes)

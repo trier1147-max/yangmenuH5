@@ -276,6 +276,10 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
     })
   }, [])
 
+  /** 只展示 detail 已生成完整的菜品（有 description 或 flavor） */
+  const completeOnly = (dishes: Dish[]) =>
+    dishes.filter((d) => d.detail?.description || d.detail?.flavor || d.detail?.recommendation)
+
   // 初始化：从 store 或 localStorage 加载
   useEffect(() => {
     params.then((p) => {
@@ -284,14 +288,12 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
 
       const streamState = getStreamingState()
       if (streamState.status === 'streaming' && streamState.recordId === id) {
-        // 正在流式传输：用 store 的菜品初始化
         setIsStreaming(true)
-        applyDishes(streamState.dishes)
+        applyDishes(completeOnly(streamState.dishes))
         prevDishCountRef.current = streamState.dishes.length
       } else if (streamState.status === 'done' && streamState.recordId === id && streamState.dishes.length > 0) {
         applyDishes(streamState.dishes)
       } else {
-        // 从 localStorage 加载（历史记录入口）
         const r = getRecord(id)
         setRecord(r)
         if (r) applyDishes(r.dishes)
@@ -308,12 +310,13 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
       if (s.recordId !== recordId) return
 
       if (s.status === 'streaming') {
-        applyDishes(s.dishes)
+        // 只渲染 detail 已完整的菜品，其余等下一次 partial 再出现
+        applyDishes(completeOnly(s.dishes))
         prevDishCountRef.current = s.dishes.length
       } else if (s.status === 'done') {
+        // done 时所有菜品 detail 均完整，全量渲染
         applyDishes(s.dishes)
         setIsStreaming(false)
-        // 更新 record（包含 menuTooLong 等）
         const r = getRecord(recordId)
         if (r) setRecord(r)
       } else if (s.status === 'error') {
