@@ -14,7 +14,7 @@ import {
   parsePriceNumber,
 } from '@/lib/menuUtils'
 
-// ── 类型 ────────────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────
 interface MenuDish extends Dish {
   key: string
   category: string
@@ -36,7 +36,7 @@ interface OrderItem {
   scrollIndex: number
 }
 
-// ── 工具 ────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────
 function getDishKey(dish: Dish, index: number): string {
   return `${String(dish.originalName ?? '').trim()}__${String(dish.briefCN ?? '').trim()}__${index}`
 }
@@ -72,30 +72,7 @@ function computeOrderSummary(allDishes: MenuDish[]) {
   return { orderDishCount, orderItemCount, orderAmountText, orderListItems, showOrderBar: orderItemCount >= 1 }
 }
 
-/** 把原始 Dish[] 转换为带 key/category/order 的 MenuDish[] */
-function convertDishes(
-  rawDishes: Dish[],
-  orderMap: Map<string, number>,
-  expandedKeys: Set<string>,
-  rawDetailMap: Map<string, Dish['detail']>,
-  lazy = true
-): MenuDish[] {
-  const menuCurrencySymbol = detectMenuCurrencySymbol(rawDishes)
-  return rawDishes.map((d, index) => {
-    const key = getDishKey(d, index)
-    const isExpanded = expandedKeys.has(key)
-    const needFull = isExpanded || !lazy
-    let detail = normalizeDishDetail(d.detail, menuCurrencySymbol)
-    if (!needFull) {
-      // 首屏懒加载：跳过食材和选项，记录原始 detail 供后续展开
-      if (d.detail) rawDetailMap.set(key, d.detail)
-      detail = { ...detail, ingredients: [], options: [] }
-    }
-    return { ...d, key, category: inferDishCategory(d), orderCount: orderMap.get(key) || 0, expanded: isExpanded, detail }
-  })
-}
-
-// ── 菜品卡片 ─────────────────────────────────────────────────────────
+// ── DishCard ─────────────────────────────────────────────────────────
 function DishCard({ dish, index, isNew, onToggle, onAdd, onDecrease }: {
   dish: MenuDish; index: number; isNew: boolean
   onToggle: (index: number) => void
@@ -103,103 +80,146 @@ function DishCard({ dish, index, isNew, onToggle, onAdd, onDecrease }: {
   onDecrease: (key: string, e: React.MouseEvent) => void
 }) {
   const detail = dish.detail
+  const hasOrder = dish.orderCount > 0
+
   return (
     <div
       id={`dish-${index}`}
-      className={`bg-white rounded-2xl shadow-sm overflow-hidden mb-2 transition-all duration-500
-        ${isNew ? 'animate-[fadeSlideIn_0.4s_ease_forwards]' : ''}`}
+      className={`rounded-[20px] overflow-hidden mb-2.5 ${isNew ? 'animate-[fadeSlideIn_0.45s_var(--spring-soft)_forwards]' : ''}`}
+      style={{
+        background: 'rgba(255,255,255,0.90)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        boxShadow: hasOrder
+          ? '0 4px 20px rgba(255,107,0,0.12), 0 1px 4px rgba(0,0,0,0.04)'
+          : 'var(--shadow-sm)',
+        border: hasOrder ? '1px solid rgba(255,107,0,0.18)' : '1px solid rgba(255,255,255,0.7)',
+        transition: 'box-shadow 0.25s ease, border-color 0.25s ease',
+      }}
     >
-      <div className="p-4 cursor-pointer active:bg-gray-50" onClick={() => onToggle(index)}>
+      {/* Header row */}
+      <div className="p-4 cursor-pointer active:opacity-80 transition-opacity" onClick={() => onToggle(index)}>
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm text-gray-800 font-medium leading-tight flex-1 min-w-0">{dish.originalName}</p>
-              {detail?.price && <span className="text-orange-500 font-semibold text-sm flex-shrink-0">{detail.price}</span>}
+              <p className="text-[15px] text-gray-800 font-semibold leading-tight flex-1 min-w-0 tracking-tight">
+                {dish.originalName}
+              </p>
+              {detail?.price && (
+                <span className="font-bold text-sm flex-shrink-0" style={{ color: 'var(--orange)' }}>
+                  {detail.price}
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-xs text-gray-500 flex-1 min-w-0 truncate">{dish.briefCN}</p>
-              <span className="text-xs bg-orange-50 text-orange-400 px-2 py-0.5 rounded-full flex-shrink-0 font-medium">{dish.category}</span>
+            <div className="flex items-center gap-2 mt-1.5">
+              <p className="text-xs text-gray-400 flex-1 min-w-0 truncate">{dish.briefCN}</p>
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+                style={{ background: 'rgba(255,107,0,0.08)', color: 'var(--orange)' }}>
+                {dish.category}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="px-4 pb-3 flex items-center justify-between">
+      {/* Action row */}
+      <div className="px-4 pb-3.5 flex items-center justify-between">
         <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => onToggle(index)}>
-          <span className={`text-gray-400 text-xs transition-transform duration-200 ${dish.expanded ? 'rotate-180' : ''}`}>▼</span>
-          <span className="text-xs text-gray-400">点击查看菜品介绍</span>
+          <span className={`text-gray-300 text-[10px] transition-transform duration-300 ${dish.expanded ? 'rotate-180' : ''}`}>▼</span>
+          <span className="text-xs text-gray-400">{dish.expanded ? '收起介绍' : '查看菜品介绍'}</span>
         </div>
-        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <button onClick={(e) => onDecrease(dish.key, e)}
-            className={`w-7 h-7 rounded-full flex items-center justify-center text-base font-medium transition-colors
-              ${dish.orderCount > 0 ? 'bg-orange-100 text-orange-500 active:bg-orange-200' : 'bg-gray-100 text-gray-300'}`}>−</button>
-          <span className={`w-7 text-center text-sm font-semibold ${dish.orderCount > 0 ? 'text-orange-500' : 'text-gray-300'}`}>{dish.orderCount}</span>
+            className="w-7 h-7 rounded-full flex items-center justify-center text-base font-medium transition-all duration-150"
+            style={{
+              background: hasOrder ? 'rgba(255,107,0,0.12)' : '#F2F2F7',
+              color: hasOrder ? 'var(--orange)' : '#C7C7CC',
+            }}>
+            −
+          </button>
+          <span className="w-7 text-center text-sm font-bold transition-colors"
+            style={{ color: hasOrder ? 'var(--orange)' : '#C7C7CC' }}>
+            {dish.orderCount}
+          </span>
           <button onClick={(e) => onAdd(dish.key, e)}
-            className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center text-base font-medium active:bg-orange-600">+</button>
+            className="w-7 h-7 rounded-full text-white flex items-center justify-center text-base font-medium active:opacity-80 transition-opacity pressable"
+            style={{ background: 'var(--orange)', boxShadow: '0 2px 8px rgba(255,107,0,0.35)' }}>
+            +
+          </button>
         </div>
       </div>
 
-      {dish.expanded && detail && (
-        <div className="px-4 pb-4 border-t border-gray-50 pt-3 space-y-3">
-          {(detail.introduction || detail.description) && (
-            <div>
-              <p className="text-xs text-gray-400 font-medium mb-1">🍽️ 菜品介绍</p>
-              <p className="text-sm text-gray-600 leading-relaxed">{detail.introduction || detail.description}</p>
-            </div>
-          )}
-          {detail.flavor && (
-            <div>
-              <p className="text-xs text-gray-400 font-medium mb-1">👅 风味口感</p>
-              <p className="text-sm text-gray-600 leading-relaxed">{detail.flavor}</p>
-            </div>
-          )}
-          {detail.ingredients && detail.ingredients.length > 0 && (
-            <div>
-              <p className="text-xs text-gray-400 font-medium mb-1.5">🥘 核心食材</p>
-              <div className="flex flex-wrap gap-1.5">
-                {detail.ingredients.map((ing, i) => (
-                  <span key={i} className="text-xs bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full">{ing}</span>
-                ))}
-              </div>
-            </div>
-          )}
-          {detail.recommendation && (
-            <div>
-              <p className="text-xs text-gray-400 font-medium mb-1">💡 推荐</p>
-              <p className="text-sm text-gray-600 leading-relaxed">{detail.recommendation}</p>
-            </div>
-          )}
-          {detail.options && detail.options.length > 0 && (
-            <div className="space-y-1">
-              {detail.options.map((opt, i) => (
-                <p key={i} className="text-sm text-gray-500">
-                  <span className="text-gray-400">{opt.group}（{opt.rule}）：</span>{opt.choices.join(' / ')}
-                </p>
-              ))}
+      {/* Expandable detail — CSS grid height trick */}
+      <div className={`dish-expand-grid ${dish.expanded ? 'expanded' : ''}`}>
+        <div className="dish-expand-inner">
+          {detail && (
+            <div className="px-4 pb-4 pt-3 space-y-3"
+              style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+              {(detail.introduction || detail.description) && (
+                <div>
+                  <p className="text-[11px] text-gray-400 font-semibold mb-1 uppercase tracking-wide">菜品介绍</p>
+                  <p className="text-sm text-gray-600 leading-relaxed">{detail.introduction || detail.description}</p>
+                </div>
+              )}
+              {detail.flavor && (
+                <div>
+                  <p className="text-[11px] text-gray-400 font-semibold mb-1 uppercase tracking-wide">风味口感</p>
+                  <p className="text-sm text-gray-600 leading-relaxed">{detail.flavor}</p>
+                </div>
+              )}
+              {detail.ingredients && detail.ingredients.length > 0 && (
+                <div>
+                  <p className="text-[11px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wide">核心食材</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {detail.ingredients.map((ing, i) => (
+                      <span key={i} className="text-xs text-gray-500 px-2.5 py-1 rounded-full"
+                        style={{ background: '#F2F2F7' }}>
+                        {ing}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {detail.recommendation && (
+                <div>
+                  <p className="text-[11px] text-gray-400 font-semibold mb-1 uppercase tracking-wide">推荐理由</p>
+                  <p className="text-sm text-gray-600 leading-relaxed">{detail.recommendation}</p>
+                </div>
+              )}
+              {detail.options && detail.options.length > 0 && (
+                <div className="space-y-1">
+                  {detail.options.map((opt, i) => (
+                    <p key={i} className="text-sm text-gray-500">
+                      <span className="text-gray-400">{opt.group}（{opt.rule}）：</span>{opt.choices.join(' / ')}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
 
-// ── 骨架屏 ────────────────────────────────────────────────────────────
+// ── Skeleton ─────────────────────────────────────────────────────────
 function DishSkeleton() {
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-4 mb-2 animate-pulse">
+    <div className="rounded-[20px] p-4 mb-2.5 animate-pulse"
+      style={{ background: 'rgba(255,255,255,0.7)', boxShadow: 'var(--shadow-sm)' }}>
       <div className="flex justify-between items-start gap-2">
-        <div className="flex-1 space-y-2">
-          <div className="h-4 bg-gray-100 rounded w-3/4" />
-          <div className="h-3 bg-gray-100 rounded w-1/2" />
+        <div className="flex-1 space-y-2.5">
+          <div className="h-4 rounded-full w-3/4" style={{ background: 'rgba(0,0,0,0.06)' }} />
+          <div className="h-3 rounded-full w-1/2" style={{ background: 'rgba(0,0,0,0.04)' }} />
         </div>
-        <div className="h-4 bg-orange-50 rounded w-12" />
+        <div className="h-4 rounded-full w-12" style={{ background: 'rgba(255,107,0,0.08)' }} />
       </div>
     </div>
   )
 }
 
-// ── 主页面 ───────────────────────────────────────────────────────────
+// ── Main Page ────────────────────────────────────────────────────────
 export default function MenuPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const [recordId, setRecordId] = useState('')
@@ -211,7 +231,7 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
   const [orderDetailVisible, setOrderDetailVisible] = useState(false)
   const [scrollToId, setScrollToId] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
-  const [streamError, setStreamError] = useState('')
+  const [streamErrMsg, setStreamErrMsg] = useState('')
   const [newDishKeys, setNewDishKeys] = useState<Set<string>>(new Set())
 
   const orderMapRef = useRef<Map<string, number>>(new Map())
@@ -222,7 +242,6 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
   const orderSummary = computeOrderSummary(allDishes)
   const visibleDishes = filterByCategory(allDishes, activeCategory)
 
-  // 更新 allDishes（合并新菜品，保留展开状态和点单数量，始终更新 detail）
   const applyDishes = useCallback((rawDishes: Dish[]) => {
     setAllDishes((prev) => {
       const menuCurrencySymbol = detectMenuCurrencySymbol(rawDishes)
@@ -230,27 +249,22 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
         const key = getDishKey(d, index)
         const existing = prev.find((p) => p.key === key)
 
-        // 始终用最新 detail，保留用户交互状态
         const isExpanded = existing?.expanded ?? expandedKeysRef.current.has(key)
         const detail = normalizeDishDetail(d.detail, menuCurrencySymbol)
 
         if (isExpanded) {
-          // 已展开：计算完整 ingredients/options
           detail.ingredients = normalizeIngredients(d.detail?.ingredients)
           detail.options = normalizeOptionGroups(d.detail?.options)
         } else {
-          // 未展开：懒加载，存原始 detail 供展开时使用
           if (d.detail) rawDetailMapRef.current.set(key, d.detail)
           detail.ingredients = []
           detail.options = []
         }
 
         if (existing) {
-          // 已有菜品：更新 detail，保留 expanded / orderCount
           return { ...existing, detail }
         }
 
-        // 新菜品
         return {
           ...d, key,
           category: inferDishCategory(d),
@@ -260,7 +274,6 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
         }
       })
 
-      // 标记新出现的菜品 key，用于入场动画
       const newKeys = new Set(updated.slice(prev.length).map((d) => d.key))
       if (newKeys.size > 0) {
         setNewDishKeys((old) => new Set([...old, ...newKeys]))
@@ -268,7 +281,7 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
           const next = new Set(old)
           newKeys.forEach((k) => next.delete(k))
           return next
-        }), 600)
+        }), 700)
       }
 
       setCategories(buildCategories(updated))
@@ -276,11 +289,9 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
     })
   }, [])
 
-  /** 只展示 detail 已生成完整的菜品（有 description 或 flavor） */
   const completeOnly = (dishes: Dish[]) =>
     dishes.filter((d) => d.detail?.description || d.detail?.flavor || d.detail?.recommendation)
 
-  // 初始化：从 store 或 localStorage 加载
   useEffect(() => {
     params.then((p) => {
       const id = p.id
@@ -301,7 +312,6 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
     })
   }, [params, applyDishes])
 
-  // 订阅 streamingStore，实时更新菜品
   useEffect(() => {
     if (!recordId) return
 
@@ -310,22 +320,19 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
       if (s.recordId !== recordId) return
 
       if (s.status === 'streaming') {
-        // 只渲染 detail 已完整的菜品，其余等下一次 partial 再出现
         applyDishes(completeOnly(s.dishes))
         prevDishCountRef.current = s.dishes.length
       } else if (s.status === 'done') {
-        // done 时所有菜品 detail 均完整，全量渲染
         applyDishes(s.dishes)
         setIsStreaming(false)
         const r = getRecord(recordId)
         if (r) setRecord(r)
       } else if (s.status === 'error') {
         setIsStreaming(false)
-        setStreamError(s.error || '识别出错')
+        setStreamErrMsg(s.error || '识别出错')
       }
     })
 
-    // 检查初始状态是否已是 streaming
     const s = getStreamingState()
     if (s.recordId === recordId && s.status === 'streaming') {
       setIsStreaming(true)
@@ -334,7 +341,6 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
     return unsub
   }, [recordId, applyDishes])
 
-  // 滚动定位
   useEffect(() => {
     if (!scrollToId) return
     const el = document.getElementById(scrollToId)
@@ -343,7 +349,6 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
     return () => clearTimeout(t)
   }, [scrollToId])
 
-  // 展开/收起
   const handleToggle = useCallback((index: number) => {
     setAllDishes((prev) => {
       const dish = prev[index]
@@ -372,7 +377,6 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
     })
   }, [])
 
-  // 点单
   const handleAdd = useCallback((key: string, e: React.MouseEvent) => {
     e.stopPropagation()
     const count = (orderMapRef.current.get(key) || 0) + 1
@@ -393,20 +397,30 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
     setTimeout(() => setScrollToId(`dish-${item.scrollIndex}`), 80)
   }
 
-  // 从 localStorage 加载的 record（for menuTooLong 等元数据）
   const finalRecord = record ?? (recordId ? getRecord(recordId) : null)
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#FFF8F3]">
-      {/* 顶部 */}
-      <div className="bg-white px-4 pt-12 pb-3 flex items-center gap-3 border-b border-gray-100 sticky top-0 z-20">
+    <div className="flex flex-col min-h-screen" style={{ background: '#F2F2F7' }}>
+
+      {/* Sticky header */}
+      <div className="px-4 pt-14 pb-3 flex items-center gap-3 sticky top-0 z-20"
+        style={{
+          background: 'rgba(242,242,247,0.85)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          borderBottom: '1px solid rgba(0,0,0,0.05)',
+        }}>
         <button onClick={() => router.back()}
-          className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-lg flex-shrink-0">‹</button>
+          className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 text-lg flex-shrink-0 pressable"
+          style={{ background: 'rgba(0,0,0,0.06)' }}>
+          ‹
+        </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-base font-semibold text-gray-900">菜单翻译</h1>
+            <h1 className="text-[15px] font-semibold text-gray-900 tracking-tight">菜单翻译</h1>
             {isStreaming && (
-              <span className="flex items-center gap-1 text-xs text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full">
+              <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
+                style={{ color: 'var(--orange)', background: 'rgba(255,107,0,0.08)' }}>
                 <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse inline-block" />
                 识别中
               </span>
@@ -418,61 +432,86 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
         </div>
       </div>
 
-      {/* 分类标签栏 */}
+      {/* Category tabs */}
       {categories.length > 1 && (
-        <div className="bg-white px-4 py-2.5 border-b border-gray-50 sticky top-[72px] z-10">
+        <div className="px-4 py-2.5 sticky top-[72px] z-10"
+          style={{
+            background: 'rgba(242,242,247,0.85)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            borderBottom: '1px solid rgba(0,0,0,0.04)',
+          }}>
           {!categoryExpanded ? (
             <div className="flex items-center gap-2">
               <div className="flex gap-1.5 flex-1 overflow-hidden">
                 {categories.slice(0, 5).map((cat) => (
                   <button key={cat.key} onClick={() => setActiveCategory(cat.key)}
-                    className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-medium transition-colors
-                      ${activeCategory === cat.key ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500 active:bg-gray-200'}`}>
+                    className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-medium transition-all duration-200 pressable"
+                    style={activeCategory === cat.key ? {
+                      background: 'var(--orange)',
+                      color: 'white',
+                      boxShadow: '0 2px 8px rgba(255,107,0,0.35)',
+                    } : {
+                      background: 'rgba(0,0,0,0.06)',
+                      color: '#6B6B6B',
+                    }}>
                     {cat.label}（{cat.count}）
                   </button>
                 ))}
               </div>
               {categories.length > 5 && (
                 <button onClick={() => setCategoryExpanded(true)}
-                  className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full bg-gray-100 text-gray-500">展开 ▾</button>
+                  className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full pressable"
+                  style={{ background: 'rgba(0,0,0,0.06)', color: '#6B6B6B' }}>
+                  展开 ▾
+                </button>
               )}
             </div>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {categories.map((cat) => (
                 <button key={cat.key} onClick={() => setActiveCategory(cat.key)}
-                  className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors
-                    ${activeCategory === cat.key ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500 active:bg-gray-200'}`}>
+                  className="text-xs px-3 py-1.5 rounded-full font-medium transition-all duration-200 pressable"
+                  style={activeCategory === cat.key ? {
+                    background: 'var(--orange)',
+                    color: 'white',
+                    boxShadow: '0 2px 8px rgba(255,107,0,0.35)',
+                  } : {
+                    background: 'rgba(0,0,0,0.06)',
+                    color: '#6B6B6B',
+                  }}>
                   {cat.label}（{cat.count}）
                 </button>
               ))}
               <button onClick={() => setCategoryExpanded(false)}
-                className="text-xs px-3 py-1.5 rounded-full bg-gray-100 text-gray-500">收起 ▴</button>
+                className="text-xs px-3 py-1.5 rounded-full pressable"
+                style={{ background: 'rgba(0,0,0,0.06)', color: '#6B6B6B' }}>
+                收起 ▴
+              </button>
             </div>
           )}
         </div>
       )}
 
-      {/* 内容区 */}
+      {/* Content */}
       <div className="flex-1 px-4 pt-3 pb-32">
 
-        {/* 流式错误提示 */}
-        {streamError && (
-          <div className="mb-3 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 flex items-start gap-2">
-            <span className="text-amber-400 flex-shrink-0">⚠️</span>
-            <p className="text-xs text-amber-700">{streamError}，已展示部分菜品。</p>
+        {streamErrMsg && (
+          <div className="mb-3 rounded-2xl px-4 py-3 flex items-start gap-2 animate-[fadeSlideIn_0.3s_ease_forwards]"
+            style={{ background: 'rgba(255,196,0,0.1)', border: '1px solid rgba(255,196,0,0.2)' }}>
+            <span className="flex-shrink-0">⚠️</span>
+            <p className="text-xs text-amber-700">{streamErrMsg}，已展示部分菜品。</p>
           </div>
         )}
 
-        {/* 菜单过长提示 */}
         {finalRecord?.menuTooLong && !isStreaming && (
-          <div className="mb-3 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 flex items-start gap-2">
-            <span className="text-amber-400 flex-shrink-0">⚠️</span>
+          <div className="mb-3 rounded-2xl px-4 py-3 flex items-start gap-2 animate-[fadeSlideIn_0.3s_ease_forwards]"
+            style={{ background: 'rgba(255,196,0,0.1)', border: '1px solid rgba(255,196,0,0.2)' }}>
+            <span className="flex-shrink-0">⚠️</span>
             <p className="text-xs text-amber-700 leading-relaxed">菜单内容较多，仅展示了部分菜品。建议分页拍摄以获得完整识别。</p>
           </div>
         )}
 
-        {/* 菜品列表 */}
         {visibleDishes.map((dish) => {
           const realIndex = allDishes.findIndex((d) => d.key === dish.key)
           return (
@@ -488,7 +527,6 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
           )
         })}
 
-        {/* 流式骨架屏：识别中且菜品还少时显示 */}
         {isStreaming && allDishes.length < 3 && (
           <>
             <DishSkeleton />
@@ -497,20 +535,16 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
           </>
         )}
 
-        {/* 识别中提示条 */}
         {isStreaming && allDishes.length > 0 && (
           <div className="flex items-center gap-2 py-3 px-1">
-            <div className="flex gap-1">
-              {[0, 1, 2].map((i) => (
-                <span key={i} className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-bounce"
-                  style={{ animationDelay: `${i * 0.15}s` }} />
-              ))}
-            </div>
+            {[0, 1, 2].map((i) => (
+              <span key={i} className="loading-dot w-1.5 h-1.5 rounded-full"
+                style={{ background: 'var(--orange)' }} />
+            ))}
             <span className="text-xs text-gray-400">正在识别更多菜品...</span>
           </div>
         )}
 
-        {/* 空状态（历史记录入口，无菜品） */}
         {!isStreaming && allDishes.length === 0 && (
           <div className="flex flex-col items-center justify-center py-24">
             <span className="text-5xl mb-4">🍽️</span>
@@ -520,18 +554,21 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
         <div className="h-2" />
       </div>
 
-      {/* 点单汇总栏 */}
+      {/* Order bar */}
       {orderSummary.showOrderBar ? (
-        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-30">
-          <div className="mx-4 mb-4 bg-gray-900 rounded-2xl overflow-hidden shadow-xl">
-            <div className="flex items-stretch">
+        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-30 animate-[barSlideUp_0.4s_var(--spring-soft)_forwards]">
+          <div className="mx-4 mb-5 rounded-[20px] overflow-hidden" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.20)' }}>
+            <div className="flex items-stretch" style={{ background: '#1C1C1E' }}>
               <button className="flex-1 px-4 py-3.5 text-left" onClick={() => setOrderDetailVisible(!orderDetailVisible)}>
-                <p className="text-white text-sm font-semibold">点单汇总</p>
-                <p className="text-gray-400 text-xs mt-0.5">菜品 {orderSummary.orderDishCount} 道 · 份数 {orderSummary.orderItemCount} · {orderSummary.orderAmountText}</p>
-                <p className="text-gray-500 text-xs mt-0.5">点击可查看已点菜品</p>
+                <p className="text-white text-sm font-semibold tracking-tight">点单汇总</p>
+                <p className="text-gray-400 text-xs mt-0.5">
+                  {orderSummary.orderDishCount} 道 · {orderSummary.orderItemCount} 份 · {orderSummary.orderAmountText}
+                </p>
+                <p className="text-gray-500 text-xs mt-0.5">点击查看已点菜品</p>
               </button>
               <button onClick={() => router.push('/')}
-                className="bg-orange-500 px-4 text-white text-sm font-medium active:bg-orange-600 flex-shrink-0">
+                className="px-4 text-white text-sm font-semibold active:opacity-80 transition-opacity flex-shrink-0 flex flex-col items-center justify-center"
+                style={{ background: 'var(--orange)' }}>
                 再拍<br />一张
               </button>
             </div>
@@ -539,32 +576,52 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
         </div>
       ) : (
         <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-30">
-          <div className="px-4 pb-6 pt-2 bg-gradient-to-t from-[#FFF8F3] to-transparent">
+          <div className="px-4 pb-6 pt-3" style={{ background: 'linear-gradient(to top, #F2F2F7 60%, transparent)' }}>
             <button onClick={() => router.push('/')}
-              className="w-full py-3.5 bg-orange-500 text-white rounded-2xl font-medium text-base shadow-sm active:bg-orange-600">
+              className="w-full py-3.5 text-white rounded-[16px] font-semibold text-base active:opacity-80 transition-opacity pressable"
+              style={{ background: 'linear-gradient(135deg, #FF8C2F, #FF6B00)', boxShadow: '0 4px 20px rgba(255,107,0,0.4)' }}>
               再拍一张
             </button>
           </div>
         </div>
       )}
 
-      {/* 点单清单浮层 */}
+      {/* Order detail panel */}
       {orderDetailVisible && (
-        <div className="fixed inset-0 z-40 bg-black/50 flex items-end" onClick={() => setOrderDetailVisible(false)}>
-          <div className="w-full max-w-md mx-auto bg-white rounded-t-3xl max-h-[70vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-40 flex items-end animate-[fadeIn_0.2s_ease_forwards]"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setOrderDetailVisible(false)}>
+          <div className="w-full max-w-md mx-auto rounded-t-[28px] max-h-[70vh] flex flex-col animate-[slideUp_0.35s_var(--spring-soft)_forwards]"
+            style={{ background: 'white' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3"
+              style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
               <p className="text-base font-semibold text-gray-900">将要点的菜</p>
-              <button onClick={() => setOrderDetailVisible(false)} className="text-sm text-gray-400 px-2 py-1">关闭</button>
+              <button onClick={() => setOrderDetailVisible(false)}
+                className="text-sm text-gray-400 px-2 py-1 rounded-full active:bg-gray-100">
+                关闭
+              </button>
             </div>
             <div className="overflow-y-auto flex-1">
               {orderSummary.orderListItems.map((item) => (
-                <div key={item.key} className="flex items-center px-5 py-3 border-b border-gray-50 active:bg-gray-50 cursor-pointer" onClick={() => handleOrderItemTap(item)}>
+                <div key={item.key}
+                  className="flex items-center px-5 py-3.5 active:bg-gray-50 cursor-pointer"
+                  style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}
+                  onClick={() => handleOrderItemTap(item)}>
                   <p className="flex-1 text-sm text-gray-800 font-medium truncate">{item.name}</p>
                   <div className="flex items-center gap-1 flex-shrink-0 ml-3" onClick={(e) => e.stopPropagation()}>
                     <span className="text-sm text-gray-400 mr-2">{item.price}</span>
-                    <button onClick={(e) => handleDecrease(item.key, e)} className="w-6 h-6 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center text-sm font-medium">−</button>
-                    <span className="w-6 text-center text-sm font-semibold text-orange-500">{item.count}</span>
-                    <button onClick={(e) => handleAdd(item.key, e)} className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-sm font-medium">+</button>
+                    <button onClick={(e) => handleDecrease(item.key, e)}
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium pressable"
+                      style={{ background: 'rgba(255,107,0,0.1)', color: 'var(--orange)' }}>
+                      −
+                    </button>
+                    <span className="w-6 text-center text-sm font-bold" style={{ color: 'var(--orange)' }}>{item.count}</span>
+                    <button onClick={(e) => handleAdd(item.key, e)}
+                      className="w-6 h-6 rounded-full text-white flex items-center justify-center text-sm font-medium pressable"
+                      style={{ background: 'var(--orange)' }}>
+                      +
+                    </button>
                   </div>
                 </div>
               ))}
