@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { compressImage, validateImageFile } from '@/lib/imageUtils'
-import { saveRecord, getHistory, deleteRecord } from '@/lib/storage'
+import { createStreamingRecord, updateRecord, getHistory, deleteRecord } from '@/lib/storage'
+import { streamStart, streamUpdate, streamDone, streamError, streamReset } from '@/lib/streamingStore'
 import type { Dish, HistoryRecord } from '@/lib/types'
 
 type Stage = 'idle' | 'compressing' | 'recognizing' | 'done' | 'error'
@@ -85,6 +86,11 @@ export default function HomePage() {
   const recognize = async (imageBase64: string, dishNames: string[], thumbnail?: string) => {
     setStage('recognizing')
     setPartialCount(0)
+    streamReset()
+
+    // 提前生成 recordId，跳转后继续用
+    const recordId = Date.now().toString()
+    let navigated = false
 
     try {
       const res = await fetch('/api/recognize', {
@@ -110,25 +116,66 @@ export default function HomePage() {
           else if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6))
-              if (eventType === 'status') { setStatusMsg(data.message || '') }
-              else if (eventType === 'partial') { setPartialCount(data.dishes?.length || 0) }
-              else if (eventType === 'done') { finalDishes = data.dishes || []; menuTooLong = !!data.menuTooLong }
-              else if (eventType === 'error') { throw new Error(data.message || '识别失败') }
+              if (eventType === 'status') {
+                setStatusMsg(data.message || '')
+              } else if (eventType === 'partial') {
+                const dishes: Dish[] = data.dishes || []
+                setPartialCount(dishes.length)
+                if (dishes.length > 0) {
+                  if (!navigated) {
+                    // 第一道菜出现 → 创建占位记录，启动流，立即跳转
+                    navigated = true
+                    createStreamingRecord(recordId, thumbnail)
+                    streamStart(recordId, dishes)
+                    updateRecord(recordId, { dishes, dishCount: dishes.length })
+                    setStage('done')
+                    router.push(`/menu/${recordId}`)
+                  } else {
+                    // 后续菜品 → 更新 store 和 localStorage
+                    streamUpdate(dishes)
+                    updateRecord(recordId, { dishes, dishCount: dishes.length })
+                  }
+                }
+              } else if (eventType === 'done') {
+                finalDishes = data.dishes || []
+                menuTooLong = !!data.menuTooLong
+              } else if (eventType === 'error') {
+                throw new Error(data.message || '识别失败')
+              }
             } catch (e) { if (eventType === 'error') throw e }
             eventType = ''
           }
         }
       }
 
-      if (finalDishes.length === 0) throw new Error('未识别到有效菜品，请重试')
-      const recordId = saveRecord(finalDishes, thumbnail, menuTooLong)
+      if (finalDishes.length === 0 && !navigated) {
+        throw new Error('未识别到有效菜品，请重试')
+      }
+
+      // 流结束 → 写入最终数据
+      if (finalDishes.length > 0) {
+        updateRecord(recordId, { dishes: finalDishes, dishCount: finalDishes.length, menuTooLong })
+        streamDone(finalDishes)
+      }
+
+      if (!navigated) {
+        // 极少情况：partial 从未触发但 done 有数据
+        createStreamingRecord(recordId, thumbnail)
+        updateRecord(recordId, { dishes: finalDishes, dishCount: finalDishes.length, menuTooLong })
+        streamDone(finalDishes)
+        setStage('done')
+        router.push(`/menu/${recordId}`)
+      }
+
       setHistory(getHistory().slice(0, 5))
-      setStage('done')
-      router.push(`/menu/${recordId}`)
     } catch (e) {
       const err = e as Error
-      setErrorMsg(err.message || '识别失败，请重试')
-      setStage('error')
+      if (navigated) {
+        streamError(err.message || '识别失败，请重试')
+      } else {
+        setErrorMsg(err.message || '识别失败，请重试')
+        setStage('error')
+      }
     }
   }
 

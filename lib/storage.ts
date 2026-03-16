@@ -13,11 +13,33 @@ export function saveRecord(dishes: Dish[], thumbnail?: string, menuTooLong?: boo
     dishCount: dishes.length,
     menuTooLong,
   }
-
   const all = getHistory()
   const updated = [record, ...all].slice(0, MAX_HISTORY)
   localStorage.setItem(HISTORY_KEY, JSON.stringify(updated))
   return id
+}
+
+/** 创建一个占位记录（流式识别开始时调用），返回 id */
+export function createStreamingRecord(id: string, thumbnail?: string): void {
+  const record: HistoryRecord = {
+    id,
+    thumbnail,
+    dishes: [],
+    createdAt: new Date().toISOString(),
+    dishCount: 0,
+  }
+  const all = getHistory()
+  const updated = [record, ...all].slice(0, MAX_HISTORY)
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(updated))
+}
+
+/** 更新已有记录的部分字段 */
+export function updateRecord(id: string, updates: Partial<HistoryRecord>): void {
+  const all = getHistory()
+  const idx = all.findIndex((r) => r.id === id)
+  if (idx < 0) return
+  all[idx] = { ...all[idx], ...updates }
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(all))
 }
 
 export function getHistory(): HistoryRecord[] {
