@@ -7,6 +7,21 @@
 }
 
 body {
-  background: #f8f8f8;
+  background: #FAFAFA;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+@keyframes potSwing {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  50% { transform: rotate(-6deg) translateY(-2px); }
+}
+
+@keyframes floatSpark {
+  0%, 100% { transform: translateY(0) scale(0.9); opacity: 0.4; }
+  50% { transform: translateY(-8px) scale(1.05); opacity: 1; }
 }

@@ -21,6 +21,12 @@ export interface DishOptionGroup {
   choices: string[]
 }
 
+export interface Recommendation {
+  dishIndex: number
+  dishName: string
+  reason: string
+}
+
 export interface HistoryRecord {
   id: string
   thumbnail?: string
@@ -28,6 +34,7 @@ export interface HistoryRecord {
   createdAt: string
   dishCount: number
   menuTooLong?: boolean
+  recommendations?: Recommendation[]
 }
 
 export interface RecognizeSSEEvent {
