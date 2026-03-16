@@ -222,20 +222,35 @@ export default function MenuPage({ params }: { params: Promise<{ id: string }> }
   const orderSummary = computeOrderSummary(allDishes)
   const visibleDishes = filterByCategory(allDishes, activeCategory)
 
-  // 更新 allDishes（合并新菜品，保留展开状态和点单数量）
+  // 更新 allDishes（合并新菜品，保留展开状态和点单数量，始终更新 detail）
   const applyDishes = useCallback((rawDishes: Dish[]) => {
     setAllDishes((prev) => {
       const menuCurrencySymbol = detectMenuCurrencySymbol(rawDishes)
       const updated = rawDishes.map((d, index) => {
         const key = getDishKey(d, index)
         const existing = prev.find((p) => p.key === key)
-        if (existing) return existing // 已有菜品保持原样（保留展开状态）
+
+        // 始终用最新 detail，保留用户交互状态
+        const isExpanded = existing?.expanded ?? expandedKeysRef.current.has(key)
+        const detail = normalizeDishDetail(d.detail, menuCurrencySymbol)
+
+        if (isExpanded) {
+          // 已展开：计算完整 ingredients/options
+          detail.ingredients = normalizeIngredients(d.detail?.ingredients)
+          detail.options = normalizeOptionGroups(d.detail?.options)
+        } else {
+          // 未展开：懒加载，存原始 detail 供展开时使用
+          if (d.detail) rawDetailMapRef.current.set(key, d.detail)
+          detail.ingredients = []
+          detail.options = []
+        }
+
+        if (existing) {
+          // 已有菜品：更新 detail，保留 expanded / orderCount
+          return { ...existing, detail }
+        }
 
         // 新菜品
-        const detail = normalizeDishDetail(d.detail, menuCurrencySymbol)
-        if (d.detail) rawDetailMapRef.current.set(key, d.detail)
-        detail.ingredients = []
-        detail.options = []
         return {
           ...d, key,
           category: inferDishCategory(d),
