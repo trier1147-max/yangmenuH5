@@ -225,15 +225,10 @@ export default function HomePage() {
       <div className="absolute top-0 left-0 right-0 h-80 pointer-events-none z-0"
         style={{ background: 'linear-gradient(180deg, rgba(255,107,0,0.07) 0%, transparent 100%)' }} />
 
-      {/* Nav bar */}
-      <div className="relative z-10 px-5 pt-14 pb-2 flex items-center justify-center">
-        <span className="text-[15px] font-semibold text-gray-800 tracking-tight">洋菜单</span>
-      </div>
-
       <div className="relative z-10 flex-1 px-4 pb-6 overflow-y-auto">
 
         {/* Logo + title */}
-        <div className="flex items-center gap-3 mt-3 mb-1 animate-[fadeUp_0.5s_var(--spring-soft)_forwards]">
+        <div className="flex items-center gap-3 mt-14 mb-1 animate-[fadeUp_0.5s_var(--spring-soft)_forwards]">
           <div className="w-12 h-12 rounded-[16px] flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, #FF8C2F, #FF6B00)', boxShadow: '0 4px 16px rgba(255,107,0,0.35)' }}>
             菜
