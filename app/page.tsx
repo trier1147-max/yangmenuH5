@@ -58,7 +58,9 @@ export default function HomePage() {
   const [showManual, setShowManual] = useState(false)
   const [manualInput, setManualInput] = useState('')
   const [loadingStage, setLoadingStage] = useState(0)
+  const [kbHeight, setKbHeight] = useState(0)
   const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     setHistory(getHistory().slice(0, 5))
@@ -77,6 +79,28 @@ export default function HomePage() {
       setLoadingStage(0)
     }
   }, [stage])
+
+  // 监听键盘高度，让 sheet 随键盘上移
+  useEffect(() => {
+    if (!showManual) { setKbHeight(0); return }
+
+    // sheet 动画结束后再 focus，避免键盘与动画抢位
+    const focusTimer = setTimeout(() => textareaRef.current?.focus(), 320)
+
+    const onResize = () => {
+      const vv = window.visualViewport
+      if (!vv) return
+      setKbHeight(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+    }
+    window.visualViewport?.addEventListener('resize', onResize)
+    window.visualViewport?.addEventListener('scroll', onResize)
+    return () => {
+      clearTimeout(focusTimer)
+      window.visualViewport?.removeEventListener('resize', onResize)
+      window.visualViewport?.removeEventListener('scroll', onResize)
+      setKbHeight(0)
+    }
+  }, [showManual])
 
   const processImage = useCallback(async (file: File) => {
     const validationError = validateImageFile(file)
@@ -507,23 +531,29 @@ export default function HomePage() {
           style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
           onClick={() => setShowManual(false)}>
           <div
-            className="w-full max-w-lg rounded-t-[28px] px-5 pt-5 pb-safe animate-[slideUp_0.32s_var(--spring-soft)_forwards]"
-            style={{ background: 'rgba(242,242,247,0.97)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)' }}
+            className="w-full max-w-lg rounded-t-[28px] px-5 pt-5 animate-[slideUp_0.32s_var(--spring-soft)_forwards]"
+            style={{
+              background: 'rgba(242,242,247,0.97)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              paddingBottom: kbHeight > 0 ? `${kbHeight + 16}px` : 'max(1.5rem, env(safe-area-inset-bottom))',
+              transition: 'padding-bottom 0.25s ease',
+            }}
             onClick={(e) => e.stopPropagation()}>
             {/* Handle */}
             <div className="w-9 h-1 rounded-full mx-auto mb-5" style={{ background: 'var(--separator-opaque)' }} />
             <h3 className="text-[17px] font-semibold text-gray-900 mb-4 tracking-tight">输入菜名</h3>
             <textarea
+              ref={textareaRef}
               value={manualInput}
               onChange={e => setManualInput(e.target.value)}
               placeholder="如：Beef Wellington, Caesar Salad"
-              className="w-full rounded-[14px] px-4 py-3 text-[14px] resize-none h-32 focus:outline-none"
+              className="w-full rounded-[14px] px-4 py-3 text-[14px] resize-none h-28 focus:outline-none"
               style={{
                 background: 'rgba(255,255,255,0.90)',
                 border: '0.5px solid rgba(0,0,0,0.08)',
                 color: 'var(--label)',
               }}
-              autoFocus
             />
             <p className="text-[12px] mt-2 mb-5" style={{ color: 'var(--label-tertiary)' }}>
               每行或用逗号分隔一个菜名，最多 40 个
