@@ -8,6 +8,11 @@
   box-sizing: border-box;
 }
 
+html {
+  /* iOS safe areas */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
 body {
   background: #F2F2F7;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC',
@@ -19,28 +24,59 @@ body {
 
 /* ── Design Tokens ────────────────────────────────────────── */
 :root {
+  /* Brand */
   --orange: #FF6B00;
   --orange-light: #FF8C2F;
-  --orange-glow: rgba(255, 107, 0, 0.35);
-  --orange-soft: rgba(255, 107, 0, 0.08);
-  --surface: rgba(255, 255, 255, 0.82);
-  --surface-thick: rgba(255, 255, 255, 0.95);
-  --border: rgba(0, 0, 0, 0.07);
-  --border-light: rgba(255, 255, 255, 0.6);
-  --shadow-sm: 0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
-  --shadow-md: 0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
-  --shadow-lg: 0 20px 60px rgba(0,0,0,0.14), 0 4px 16px rgba(0,0,0,0.08);
+  --orange-glow: rgba(255, 107, 0, 0.30);
+  --orange-soft: rgba(255, 107, 0, 0.09);
+  --orange-softer: rgba(255, 107, 0, 0.05);
+
+  /* iOS system fills */
+  --fill-primary: rgba(120, 120, 128, 0.20);
+  --fill-secondary: rgba(120, 120, 128, 0.16);
+  --fill-tertiary: rgba(118, 118, 128, 0.12);
+
+  /* iOS label colors */
+  --label: #000000;
+  --label-secondary: rgba(60, 60, 67, 0.60);
+  --label-tertiary: rgba(60, 60, 67, 0.30);
+  --label-quaternary: rgba(60, 60, 67, 0.18);
+
+  /* Surfaces */
+  --surface: rgba(255, 255, 255, 0.78);
+  --surface-thick: rgba(255, 255, 255, 0.96);
+  --surface-card: rgba(255, 255, 255, 0.92);
+
+  /* Separators */
+  --separator: rgba(60, 60, 67, 0.29);
+  --separator-opaque: #C6C6C8;
+  --separator-thin: rgba(60, 60, 67, 0.10);
+
+  /* Shadows — iOS is very subtle */
+  --shadow-xs: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+  --shadow-sheet: 0 -1px 0 rgba(0,0,0,0.08), 0 -8px 32px rgba(0,0,0,0.06);
+
+  /* Motion */
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --spring-soft: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --snap: cubic-bezier(0.55, 0, 1, 0.45);
+  --spring-gentle: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Shape */
   --radius-card: 20px;
   --radius-pill: 999px;
+
+  /* Blur */
   --blur: blur(24px) saturate(180%);
+  --blur-heavy: blur(40px) saturate(200%);
 }
 
 /* ── Keyframes ────────────────────────────────────────────── */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes fadeIn {
@@ -48,20 +84,20 @@ body {
   to   { opacity: 1; }
 }
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.88); }
+  from { opacity: 0; transform: scale(0.92); }
   to   { opacity: 1; transform: scale(1); }
 }
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-12px); }
+  from { opacity: 0; transform: translateY(-10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(24px); }
+  from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes orbPulse {
-  0%, 100% { transform: scale(1); opacity: 0.5; }
-  50%       { transform: scale(1.12); opacity: 0.25; }
+@keyframes orbGlow {
+  0%, 100% { opacity: 0.50; transform: scale(1); }
+  50%       { opacity: 0.25; transform: scale(1.08); }
 }
 @keyframes orbRotate {
   from { transform: rotate(0deg); }
@@ -69,7 +105,7 @@ body {
 }
 @keyframes breathe {
   0%, 100% { transform: scale(1); }
-  50%       { transform: scale(1.12); }
+  50%       { transform: scale(1.10); }
 }
 @keyframes potSwing {
   0%, 100% { transform: rotate(0deg) translateY(0); }
@@ -80,7 +116,7 @@ body {
   50%       { transform: translateY(-10px) scale(1.1); opacity: 1; }
 }
 @keyframes fadeSlideIn {
-  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes shimmer {
@@ -89,17 +125,17 @@ body {
 }
 @keyframes bounceCount {
   0%   { transform: scale(1); }
-  40%  { transform: scale(1.35); }
-  70%  { transform: scale(0.9); }
+  40%  { transform: scale(1.30); }
+  70%  { transform: scale(0.92); }
   100% { transform: scale(1); }
 }
 @keyframes barSlideUp {
-  from { transform: translateY(100%); opacity: 0; }
+  from { transform: translateY(110%); opacity: 0; }
   to   { transform: translateY(0); opacity: 1; }
 }
-@keyframes dotBounce {
-  0%, 80%, 100% { transform: translateY(0); }
-  40%           { transform: translateY(-6px); }
+@keyframes dotPulse {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+  40%           { transform: scale(1); opacity: 1; }
 }
 @keyframes progressRing {
   from { stroke-dashoffset: 220; }
@@ -111,40 +147,54 @@ body {
 
 /* ── Utility Classes ──────────────────────────────────────── */
 
-/* Glass surface */
+/* iOS frosted glass */
 .glass {
   background: var(--surface);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
-  border: 1px solid var(--border-light);
+  border: 0.5px solid rgba(255,255,255,0.55);
 }
 .glass-thick {
   background: var(--surface-thick);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
-  border: 1px solid var(--border);
+  border: 0.5px solid rgba(255,255,255,0.45);
+}
+.glass-card {
+  background: var(--surface-card);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 0.5px solid rgba(255,255,255,0.60);
 }
 
-/* Press scale interaction */
+/* Press interaction — iOS haptic feel */
 .pressable {
-  transition: transform 0.15s var(--spring-soft), box-shadow 0.15s ease;
+  transition: transform 0.12s var(--spring-soft), box-shadow 0.12s ease, opacity 0.12s ease;
   cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .pressable:active {
-  transform: scale(0.96);
+  transform: scale(0.95);
+  opacity: 0.85;
+}
+
+/* Large pressable (orb, big buttons) */
+.pressable-lg:active {
+  transform: scale(0.97);
 }
 
 /* Staggered list items */
 .stagger-item {
   opacity: 0;
-  animation: fadeUp 0.5s var(--spring-soft) forwards;
+  animation: fadeUp 0.45s var(--spring-soft) forwards;
 }
 
-/* Dish card expand animation using grid trick */
+/* Dish card expand animation using CSS grid trick */
 .dish-expand-grid {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.32s var(--spring-soft);
+  transition: grid-template-rows 0.30s var(--spring-soft);
 }
 .dish-expand-grid.expanded {
   grid-template-rows: 1fr;
@@ -155,21 +205,44 @@ body {
 
 /* Order count bounce */
 .count-bounce {
-  animation: bounceCount 0.3s var(--spring) forwards;
+  animation: bounceCount 0.28s var(--spring) forwards;
 }
 
 /* Loading dots */
 .loading-dot {
-  animation: dotBounce 1.2s ease-in-out infinite;
+  animation: dotPulse 1.4s ease-in-out infinite;
 }
 .loading-dot:nth-child(2) { animation-delay: 0.2s; }
 .loading-dot:nth-child(3) { animation-delay: 0.4s; }
 
-/* Tab bar active indicator */
+/* iOS tab bar active indicator */
 .tab-active-dot {
   width: 4px;
   height: 4px;
   border-radius: 50%;
   background: var(--orange);
   margin: 2px auto 0;
+}
+
+/* iOS grouped list row */
+.list-row {
+  background: var(--surface-card);
+  position: relative;
+}
+.list-row + .list-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 0.5px;
+  background: var(--separator-thin);
+}
+
+/* Safe area padding utilities */
+.pb-safe {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+.pt-safe {
+  padding-top: max(3.5rem, calc(env(safe-area-inset-top) + 1rem));
 }
