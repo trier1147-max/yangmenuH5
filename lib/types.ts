@@ -27,6 +27,7 @@ export interface HistoryRecord {
   dishes: Dish[]
   createdAt: string
   dishCount: number
+  menuTooLong?: boolean
 }
 
 export interface RecognizeSSEEvent {

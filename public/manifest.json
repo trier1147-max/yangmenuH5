@@ -1,0 +1,22 @@
+{
+  "name": "洋菜单 - 外文菜单翻译",
+  "short_name": "洋菜单",
+  "description": "拍照识别外文菜单，用AI读懂每一道菜",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF8F3",
+  "theme_color": "#F97316",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

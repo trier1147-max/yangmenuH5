@@ -3,7 +3,7 @@ import type { HistoryRecord, Dish } from './types'
 const HISTORY_KEY = 'yangmenu_history'
 const MAX_HISTORY = 50
 
-export function saveRecord(dishes: Dish[], thumbnail?: string): string {
+export function saveRecord(dishes: Dish[], thumbnail?: string, menuTooLong?: boolean): string {
   const id = Date.now().toString()
   const record: HistoryRecord = {
     id,
@@ -11,6 +11,7 @@ export function saveRecord(dishes: Dish[], thumbnail?: string): string {
     dishes,
     createdAt: new Date().toISOString(),
     dishCount: dishes.length,
+    menuTooLong,
   }
 
   const all = getHistory()
