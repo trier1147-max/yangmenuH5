@@ -4,9 +4,9 @@ import https from 'https'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const parser = require('../../../cloudfunctions/recognizeMenu/parser')
 
-const AI_MODEL = 'deepseek-v3.2'
-const AI_HOST = 'api.lkeap.cloud.tencent.com'
-const AI_PATH = '/v1/chat/completions'
+const AI_MODEL = 'deepseek-chat'
+const AI_HOST = 'api.deepseek.com'
+const AI_PATH = '/chat/completions'
 const AI_MAX_TOKENS = 6000
 const AI_TIMEOUT_MS = 90000
 const OCR_INPUT_MAX_CHARS = 3000
@@ -134,7 +134,6 @@ export async function POST(req: NextRequest) {
           temperature: 0.5,
           max_tokens: AI_MAX_TOKENS,
           stream: true,
-          thinking: { type: 'disabled' },
         })
 
         const defaultCurrency = parser.detectCurrencyFromOcrText(ocrText)
@@ -150,7 +149,7 @@ export async function POST(req: NextRequest) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${process.env.LKEAP_API_KEY}`,
+              Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
               'Content-Length': Buffer.byteLength(bodyStr),
             },
           }
@@ -162,7 +161,8 @@ export async function POST(req: NextRequest) {
               res.on('data', (chunk: Buffer) => { errBuf += chunk.toString() })
               res.on('end', () => {
                 let msg = `识别失败（错误码：${statusCode}），请重试`
-                if (statusCode === 429) msg = '服务繁忙，请稍后再试'
+                if (statusCode === 402) msg = 'DeepSeek 账户余额不足，请前往 platform.deepseek.com 充值'
+                else if (statusCode === 429) msg = '服务繁忙，请稍后再试'
                 else if (statusCode === 401) msg = '服务配置异常，请联系开发者'
                 reject(new Error(msg))
               })
